@@ -2,12 +2,12 @@
 ui <- fluidPage(
   
   # Application title
-  titlePanel("Do I Suck Or Does My Team Suck?"),
+  # titlePanel("Do I Suck Or Does My Team Suck?"),
   
   sidebarLayout(
     
     # Sidebar Panel for Inputs ----
-    sidebarPanel(
+    sidebarPanel(width = 3, style="margin-top: 10px",
       textInput("input_summoner_name",
                   "Summoner Name",
                   value = 'w6f'),
@@ -20,20 +20,33 @@ ui <- fluidPage(
       sliderInput('input_games_back',
                   'Latest How Many Games',
                   min = 1,
-                  max = 1000,
-                  value = 1000,
+                  max = 100,
+                  value = 100,
                   step = 1),
       selectInput('input_champ_select',
                   'What Champs',
                   choices = c('Diana','Cassiopeia'),
                   multiple = TRUE,
-                  selectize = TRUE)
+                  selectize = TRUE),
+      uiOutput("output_selection_helptext")
     ),
     
     # Main Panel for Plots ----
-    mainPanel(
-      plotOutput("plot_top"),
-      plotOutput("plot_bottom")
+    mainPanel(width=9,
+      fluidRow(
+        uiOutput("output_story"),
+        hr()
+      ),
+      fluidRow(
+        column(7,
+          div(style="font-size: 22px; text-align: center",'Solo Kills'),
+          div(class="help-block",style='font-size: 14px;',HTML('<ul><li><span style="font-style: italic";>TOP: </span><span style="color: #13f222; font-weight: bold;">Your Average Solo Kills</span> against <span style="color:black; font-weight: bold;">Your Lane Opponent</span></li><li><span style="font-style: italic";>BOTTOM: </span><span style="color:#13f222; font-weight: bold;">Your Teams Solo Kills</span> against <span style="color:black; font-weight: bold;">Their Respective Lane Opponents</span></li></ul>')),
+          plotOutput("plot_top")),
+        column(5,
+          div(style="font-size: 22px; text-align: center",'KDA'),
+          div(class="help-block",style='font-size: 14px;',HTML('<ul><li><span style="color: #13f222; font-weight: bold;">Your KDA</span> against <span style="color: black; font-weight: bold;">Your Lane Opponent</span></li><li>Only Wins or Only Losses</li></ul>')),
+          plotOutput("plot_bottom"))
+      )
     )
   )
 )
@@ -59,7 +72,7 @@ server <- function(session, input, output) {
     
   })
   
-  # New API pull (New Summoner Selected) ----
+  # New API Pull (New Summoner Selected) ----
   observeEvent(input$button_reload, {
     
     # Store inputted summoner and region
@@ -88,7 +101,7 @@ server <- function(session, input, output) {
   }, 
   ignoreInit = TRUE)
   
-  # Plot - Bottom Output ----
+  # Plot - Right Output ----
   output$plot_bottom <- renderPlot({
     
     # Get Data
@@ -101,7 +114,7 @@ server <- function(session, input, output) {
     
     # Filter to Champion Selection
     df1 <- df1 %>%
-      filter_by_champion(my_champion_list = isolate(input$input_champ_select))
+      filter_by_champion(my_champion_list = input$input_champ_select)
     
     # Filter to only your position
     df1 <- df1 %>%
@@ -114,21 +127,39 @@ server <- function(session, input, output) {
     
     # Change Values and Column Names for Display
     df1 <- df1 %>%
-      mutate(me = case_when(me==TRUE ~ 'Myself',TRUE ~ 'Opponent')) %>% 
+      mutate(me = case_when(me==TRUE ~ 'Myself',TRUE ~ 'Opposing Laner')) %>% 
       rename(Player = me) %>% 
       mutate(win = case_when(win=='True' ~ 'Win',TRUE ~ 'Loss')) %>% 
-      rename(`Game Result` = win) %>% 
+      rename(`Result` = win) %>% 
       rename(`KDA` = kda)
-    saveRDS(df1,'my_check_BOT.rds')
+    
+    
+    # Manually Order Positions
+    df1$Result <- factor(df1$Result,
+                       levels=c("Win", "Loss"))
+    
+    # Roll Up Data to groups for plotting
+    df1 <- df1 %>%
+      group_by(Player, `Result`) %>%
+      summarize(KDA = round(mean(`KDA`, na.rm=TRUE),1), .groups='drop')
     
     # Make Plot
     df1 %>%
-      ggplot(aes(fill=Player, y=KDA, x=`Game Result`)) + 
-      geom_bar(position="dodge", stat="identity")
+      ggplot(aes(fill=Player, y=KDA, x=`Result`)) + 
+      geom_bar(position="dodge", stat="identity", show.legend = FALSE) +
+      geom_text(aes(label=KDA),color='black', position=position_dodge(width=0.9), vjust=-.35) +
+      ylim(0,max(df1%>%select(KDA))+0.5) +
+      scale_fill_manual(values=c("green","black")) +
+      theme(panel.background = element_rect(fill='#f5f3f0'),
+            strip.text.x = element_text(size = 12),
+            axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            axis.text=element_text(size=12),
+            plot.title = element_text(hjust = 0.5, size=20))
     
   })
   
-  #  Plot - Top Output ----
+  #  Plot - Left Output ----
   output$plot_top <- renderPlot({
     
     # Get Data
@@ -141,31 +172,80 @@ server <- function(session, input, output) {
     
     # Filter by Champion Selection
     df1 <- df1 %>%
-      filter_by_champion(my_champion_list = isolate(input$input_champ_select))
+      filter_by_champion(my_champion_list = input$input_champ_select)
     
     # Change Values and Column Names for Display
     df1 <- df1 %>%
-      mutate(my_team = case_when(my_team==TRUE ~ 'My Team',TRUE ~ 'Opposing Team')) %>% 
+      mutate(my_team = case_when(my_team==TRUE ~ 'Me / My Team',TRUE ~ 'Opposing Team')) %>% 
+      mutate(label_color = case_when(my_team==TRUE ~ 'black',TRUE ~ 'white')) %>% 
       rename(`Team` = my_team) %>% 
       rename(`Role` = teamPosition) %>% 
       mutate(Role = str_to_title(Role)) %>%    
       rename(`Solo Kills` = soloKills) %>%
       mutate(Role = case_when(Role=='Utility' ~ 'Support',TRUE ~ Role)) %>% 
-      mutate(my_position = case_when(my_position==TRUE ~ 'Me Playing',
-                                     TRUE ~ 'My Team Playing'))
+      mutate(my_position = case_when(my_position==TRUE ~ 'Me Versus My Lane Opponent',
+                                     TRUE ~ 'My Team Versus Their Lane Opponents'))
       
     # Manually Order Positions
-    df1$Role <- factor(df1$Role, levels=c("Top", "Jungle","Middle","Bottom",
-                                                            "Support"))
+    df1$Role <- factor(df1$Role,
+                       levels=c("Top", "Jungle","Middle", "Bottom","Support"))
+    
     # Filter Out Bad Data
     df1 <- df1 %>%
       filter(is.na(Role)==FALSE)
-    saveRDS(df1,'my_check_TOP.rds')
+    
+    # Roll Up Data to groups for plotting
+    df1 <- df1 %>%
+      group_by(Team, Role, my_position, label_color) %>%
+      summarize(`Solo Kills` = round(mean(`Solo Kills`, na.rm=TRUE),1), .groups='drop')
+      
     # Make Plot
-    df1 %>%
+    df1 %>% 
       ggplot(aes(fill=Team, y=`Solo Kills`, x=Role)) + 
-        geom_bar(position="dodge", stat="identity") +
-        facet_grid(rows = vars(my_position))
+      geom_bar(position="dodge", stat="identity", show.legend = FALSE) +
+      geom_text(aes(label=`Solo Kills`),color='black', position=position_dodge(width=0.9), vjust=-.35) +
+      # scale_colour_manual(values=c("white", "black")) +
+      # scale_y_continuous(labels=abs) +
+      ylim(0,max(df1%>%select(`Solo Kills`))+0.25) +
+      scale_fill_manual(values=c("green","black")) +
+      theme(legend.position = "top",
+            panel.background = element_rect(fill='#f5f3f0'),
+            strip.text.x = element_text(size = 12),
+            axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            axis.text=element_text(size=12),
+            plot.title = element_text(hjust = 0.5, size=20)) +
+      facet_wrap(~my_position, ncol = 1)
+  })
+  
+  # Header Story Output ----
+  output$output_story <- renderUI({
+    input$button_reload
+    
+    h1(style="text-align: center",
+       paste0(isolate(input$input_summoner_name),
+              "'s Team Sucks"))
+  })
+  
+  # Help Text Selection Output ----
+  output$output_selection_helptext <- renderUI({
+    
+    # Get Data
+    df1 <- my_data()
+    
+    # Filter by Games Back Input
+    df1 <- df1 %>%
+      arrange(desc(gameCreation)) %>%
+      slice_head(n = input$input_games_back*10)
+    
+    # Filter by Champion Selection
+    df1 <- df1 %>%
+      filter_by_champion(my_champion_list = input$input_champ_select)
+    
+    # HTML Output Text
+    HTML(paste0('<span class="help-block">',nrow(df1)/10,
+                ' in the last ',input$input_games_back,
+                ' games played on selected champion(s)</span>'))
   })
 }
 
