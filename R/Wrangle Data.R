@@ -12,6 +12,13 @@ wrangle_data <- function(df, summoner) {
     mutate(my_team=any(summonerName==summoner)) %>%
     ungroup()
   
+  # Create my_champion field
+  df <- df %>%
+    filter(summonerName==summoner) %>%
+    select(championName, gameCreation) %>% 
+    rename(my_champion = championName) %>% 
+    inner_join(df, by='gameCreation')
+  
   # Calculate my_position column
   df <- df %>%
     group_by(gameCreation, teamPosition) %>%
