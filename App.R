@@ -40,11 +40,13 @@ ui <- fluidPage(
       fluidRow(
         column(7,
           div(style="font-size: 22px; text-align: center",'Solo Kills'),
-          div(class="help-block",style='font-size: 14px;',HTML('<ul><li><span style="font-style: italic";>TOP: </span><span style="color: #13f222; font-weight: bold;">Your Average Solo Kills</span> against <span style="color:black; font-weight: bold;">Your Lane Opponent</span></li><li><span style="font-style: italic";>BOTTOM: </span><span style="color:#13f222; font-weight: bold;">Your Teams Solo Kills</span> against <span style="color:black; font-weight: bold;">Their Respective Lane Opponents</span></li></ul>')),
+          div(class="help-block",style='font-size: 14px;',
+              includeHTML("inst/Solo Kills.html")),
           plotOutput("plot_top")),
         column(5,
           div(style="font-size: 22px; text-align: center",'KDA'),
-          div(class="help-block",style='font-size: 14px;',HTML('<ul><li><span style="color: #13f222; font-weight: bold;">Your KDA</span> against <span style="color: black; font-weight: bold;">Your Lane Opponent</span></li><li>Only Wins or Only Losses</li></ul>')),
+          div(class="help-block",style='font-size: 14px;',
+              includeHTML("inst/KDA.html")),
           plotOutput("plot_bottom"))
       )
     )
