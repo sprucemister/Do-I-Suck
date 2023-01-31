@@ -179,7 +179,6 @@ server <- function(session, input, output) {
     # Change Values and Column Names for Display
     df1 <- df1 %>%
       mutate(my_team = case_when(my_team==TRUE ~ 'Me / My Team',TRUE ~ 'Opposing Team')) %>% 
-      mutate(label_color = case_when(my_team==TRUE ~ 'black',TRUE ~ 'white')) %>% 
       rename(`Team` = my_team) %>% 
       rename(`Role` = teamPosition) %>% 
       mutate(Role = str_to_title(Role)) %>%    
