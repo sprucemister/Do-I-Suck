@@ -24,4 +24,11 @@ wrangle_data <- function(df, summoner) {
     group_by(gameCreation, teamPosition) %>%
     mutate(my_position=any(summonerName==summoner)) %>%
     ungroup()
+  
+  # Filter out bad values
+  df <- df %>% 
+    filter(is.nan(kda) == FALSE) %>% 
+    filter(is.na(kda) == FALSE) %>% 
+    filter(is.nan(soloKills) == FALSE) %>% 
+    filter(is.na(soloKills) == FALSE) 
 }

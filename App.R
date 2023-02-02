@@ -83,8 +83,9 @@ server <- function(session, input, output) {
     
     # Python API query for new data and read that data
     print(paste0('Start Python API Query For: ',new_summoner,' @ ',Sys.time()))
-    get_api_data(new_summoner,'na1')
+    get_api_data(new_summoner,'na1', get_api_key())
     print(paste0('End Python API Query For: ',new_summoner,' @ ',Sys.time()))
+    beepr::beep()
     df1 <- tibble(read.csv('Temp - Raw API Data.csv'))
     
     # Wrangle Data
@@ -197,7 +198,7 @@ server <- function(session, input, output) {
     
     # Roll Up Data to groups for plotting
     df1 <- df1 %>%
-      group_by(Team, Role, my_position, label_color) %>%
+      group_by(Team, Role, my_position) %>%
       summarize(`Solo Kills` = round(mean(`Solo Kills`, na.rm=TRUE),1), .groups='drop')
       
     # Make Plot
@@ -221,11 +222,98 @@ server <- function(session, input, output) {
   
   # Header Story Output ----
   output$output_story <- renderUI({
-    input$button_reload
     
-    h1(style="text-align: center",
-       paste0(isolate(input$input_summoner_name),
-              "'s Team Sucks"))
+    # Fire only on Reload Button
+    input$button_reload
+
+    # Get Summoner Name
+    summoner <- isolate(input$input_summoner_name)
+    
+    # Get Data
+    df1 <- my_data()
+    
+    # Filter by Games Back Input
+    df1 <- df1 %>%
+      arrange(desc(gameCreation)) %>%
+      slice_head(n = input$input_games_back*10)
+    
+    # Filter by Champion Selection
+    df1 <- df1 %>%
+      filter_by_champion(my_champion_list = input$input_champ_select)
+    saveRDS(df1,'check_this.rds')
+    print(isolate(input$input_summoner_name))
+    # Get Stats - Solo Kills
+    avg_sk.enemy_team <- filter(df1, my_team==FALSE & my_position==FALSE) %>% pull(`soloKills`) %>% mean()
+    avg_sk.my_team <- filter(df1, my_team==TRUE & my_position==FALSE) %>% pull(`soloKills`) %>% mean()
+    avg_sk.my_enemy_laner <- filter(df1, my_team==FALSE & my_position==TRUE) %>% pull(`soloKills`) %>% mean()
+    avg_sk.myself <- filter(df1, my_team==TRUE & my_position==TRUE) %>% pull(`soloKills`) %>% mean()
+    # Rollup Stats - Solo Kills
+    avg_sk.diff.team <- avg_sk.my_team-avg_sk.enemy_team
+    avg_sk.diff.my_lane <- avg_sk.myself-avg_sk.my_enemy_laner
+    print(paste0('Solo Kills - Other Lanes: ', avg_sk.diff.team))
+    print(paste0('Solo Kills - My Lane: ', avg_sk.diff.my_lane))
+    
+    if (is.nan(avg_sk.diff.team)==TRUE) {
+      description.sk <- ''
+      kpi_sk <- 0
+    } else {
+      if (avg_sk.diff.team > .14) {
+          kpi_sk <- -1
+          description.sk <- paste0(summoner,"'s team gets more solo kills than their lane opponents")
+        } else if (avg_sk.diff.team < -.14) {
+          kpi_sk <- 1
+          description.sk <- paste0(summoner,"'s team gets less solo kills than their lane opponents")
+        } else {
+          kpi_sk <- 0
+          description.sk <- paste0(summoner,"'s team gets about the same solo kills as their lane opponents")
+        }
+    }
+    
+    # Get Stats - KDA
+    avg_kda.win.my_enemy_laner <- filter(df1, my_team==FALSE & my_position==TRUE & win=='True') %>% pull(kda) %>% mean()
+    avg_kda.win.myself <- filter(df1, my_team==TRUE & my_position==TRUE & win=='True') %>% pull(kda) %>% mean()
+    avg_kda.loss.my_enemy_laner <- filter(df1, my_team==FALSE & my_position==TRUE & win=='False') %>% pull(kda) %>% mean()
+    avg_kda.loss.myself <- filter(df1, my_team==TRUE & my_position==TRUE & win=='False') %>% pull(kda) %>% mean()
+    # Rollup Stats - KDA
+    avg_kda.diff <- (avg_kda.win.myself-avg_kda.win.my_enemy_laner)+(avg_kda.loss.myself-avg_kda.loss.my_enemy_laner)
+    print(paste0('KDA Diff: ', avg_kda.diff))
+    
+    if (is.nan(avg_kda.diff)==TRUE) {
+      description.kda <- ''
+      kpi_kda <- 0
+    } else {
+      if (avg_kda.diff > 1.7) {
+        kpi_kda <- 1
+        description.kda <- paste0(summoner,"'s KDA is better than his opposing laner")
+      } else if (avg_kda.diff < -1.7) {
+        kpi_kda <- -1
+        description.kda <- paste0(summoner,"'s KDA is worse than his opposing laner")
+      } else {
+        kpi_kda <- 0
+        description.kda <- paste0(summoner,"'s KDA is about the same as his opposing laner")
+      }
+    }
+      
+    if (kpi_sk + kpi_kda > 0) {
+      header <- paste0(summoner,"'s Team Sucks")
+    } else if (kpi_sk + kpi_kda < 0) {
+      header <- paste0(summoner," Sucks")
+    } else {
+      header <- paste0(summoner," Is About As Good As His/Her Team")
+    }
+    print(nchar(description.kda))
+    print(nchar(description.sk))
+    # Check if 2 description statements to add separator
+    if (nchar(description.kda)==0 | nchar(description.sk)==0) {
+      description.separator <- ''
+    } else {
+      description.separator <- ', and '
+    }
+    
+    # HTML Output
+    HTML(paste0('<h2 style="text-align: center;">',header,'</h1>',
+            '<p style="text-align: center; font size=19px;">',
+            description.kda,description.separator,description.sk,'</p>'))
   })
   
   # Help Text Selection Output ----
