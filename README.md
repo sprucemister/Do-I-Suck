@@ -7,7 +7,7 @@ Answers the age old question "Do I suck or is it my team?" by comparing:
   
 Also provides stats on your solo kills compared to your laners
 
-### API
+### API Key
 
 To run with your own API key, make a file called `Get API Key.R` in the folder `/R`
 like below where `XXXXX` is your API key:
