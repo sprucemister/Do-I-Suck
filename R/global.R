@@ -1,7 +1,7 @@
 library(reticulate)
-library(beepr)
 library(data.table)
 library(tidyverse)
 library(lubridate)
 library(shiny)
+library(shinycssloaders)
 source_python('./py/Get API Data.py')

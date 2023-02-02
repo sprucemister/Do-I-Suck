@@ -16,6 +16,7 @@ ui <- fluidPage(
       #             choices = c('na1'),
       #             selected = 'na1'),
       actionButton('button_reload','Load Summoner', icon = icon("play-circle")),
+      helpText('Load Takes Up to 2 Minutes'),
       hr(),
       sliderInput('input_games_back',
                   'Latest How Many Games',
@@ -34,7 +35,7 @@ ui <- fluidPage(
     # Main Panel for Plots ----
     mainPanel(width=9,
       fluidRow(
-        uiOutput("output_story"),
+        withSpinner(uiOutput("output_story")),
         hr()
       ),
       fluidRow(
@@ -42,12 +43,12 @@ ui <- fluidPage(
           div(style="font-size: 22px; text-align: center",'Solo Kills'),
           div(class="help-block",style='font-size: 14px;',
               includeHTML("inst/Solo Kills.html")),
-          plotOutput("plot_top")),
+          withSpinner(plotOutput("plot_top"))),
         column(5,
           div(style="font-size: 22px; text-align: center",'KDA'),
           div(class="help-block",style='font-size: 14px;',
               includeHTML("inst/KDA.html")),
-          plotOutput("plot_bottom"))
+          withSpinner(plotOutput("plot_bottom")))
       )
     )
   )
@@ -85,7 +86,7 @@ server <- function(session, input, output) {
     print(paste0('Start Python API Query For: ',new_summoner,' @ ',Sys.time()))
     get_api_data(new_summoner,'na1', get_api_key())
     print(paste0('End Python API Query For: ',new_summoner,' @ ',Sys.time()))
-    beepr::beep()
+    
     df1 <- tibble(read.csv('Temp - Raw API Data.csv'))
     
     # Wrangle Data
@@ -301,8 +302,7 @@ server <- function(session, input, output) {
     } else {
       header <- paste0(summoner," Is About As Good As His/Her Team")
     }
-    print(nchar(description.kda))
-    print(nchar(description.sk))
+    
     # Check if 2 description statements to add separator
     if (nchar(description.kda)==0 | nchar(description.sk)==0) {
       description.separator <- ''
@@ -333,7 +333,7 @@ server <- function(session, input, output) {
     
     # HTML Output Text
     HTML(paste0('<span class="help-block">',nrow(df1)/10,
-                ' in the last ',input$input_games_back,
+                ' of the last ',input$input_games_back,
                 ' games played on selected champion(s)</span>'))
   })
 }
