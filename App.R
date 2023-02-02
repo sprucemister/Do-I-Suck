@@ -240,7 +240,7 @@ server <- function(session, input, output) {
     # Filter by Champion Selection
     df1 <- df1 %>%
       filter_by_champion(my_champion_list = input$input_champ_select)
-    saveRDS(df1,'check_this.rds')
+    
     print(isolate(input$input_summoner_name))
     # Get Stats - Solo Kills
     avg_sk.enemy_team <- filter(df1, my_team==FALSE & my_position==FALSE) %>% pull(`soloKills`) %>% mean()
