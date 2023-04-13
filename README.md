@@ -1,3 +1,7 @@
+#### Live App Available At:
+
+[Live Shiny App](https://sprucemister.shinyapps.io/DoISuck/)
+
 ## Purpose
 
 Answers the age old question "Do I suck or is it my team?" by comparing:
